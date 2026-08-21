@@ -58,3 +58,69 @@ export function installAdvancedStyles(): () => void {
   document.head.appendChild(style)
   return () => { style.remove() }
 }
+
+/**
+ * Minimum chat content width in CSS pixels. Matches the upstream conversation
+ * default so a non-maximized window keeps the familiar centered column.
+ */
+export const DESKTOP_CHAT_CONTENT_MIN_PX = 748
+
+/**
+ * Preferred chat content width as a percentage of the viewport. Maximizing the
+ * window widens the conversation column and composer instead of holding them at
+ * the fixed upstream default.
+ */
+export const DESKTOP_CHAT_CONTENT_PREFERRED_VW = 56
+
+/**
+ * Maximum chat content width in CSS pixels. Caps growth on very wide monitors
+ * so long message lines stay readable.
+ */
+export const DESKTOP_CHAT_CONTENT_MAX_PX = 1280
+
+/**
+ * Resolve the desktop chat content width for a viewport, mirroring the CSS
+ * clamp() installed below. Exposed for tests and for callers that need the
+ * resolved pixel value without a layout pass.
+ * @param viewportWidthPx - current viewport width in CSS pixels.
+ * @returns the chat content width in CSS pixels.
+ */
+export function resolveDesktopChatContentWidth(viewportWidthPx: number): number {
+  const preferred = viewportWidthPx * DESKTOP_CHAT_CONTENT_PREFERRED_VW / 100
+  return Math.min(
+    DESKTOP_CHAT_CONTENT_MAX_PX,
+    Math.max(DESKTOP_CHAT_CONTENT_MIN_PX, preferred),
+  )
+}
+
+/**
+ * Responsive override for the upstream conversation content width.
+ *
+ * The upstream conversation root declares `--dsh-chat-content-width: 748px`,
+ * which caps the message column, composer card, and empty-state hero regardless
+ * of window size. Desktop scopes a responsive clamp() to the desktop shell so
+ * maximizing the window widens the dialog. The composer card and message column
+ * derive their max-width from this token (`--dsh-composer-card-max-width`), so a
+ * single override widens every surface that reads it.
+ *
+ * The `[data-dsh-desktop-shell]` attribute is set by the desktop client on the
+ * document element in every shell mode; the attribute selector lifts
+ * specificity above the upstream single-class `.wSkVaW_root` declaration. The
+ * class name is the upstream conversation root for the pinned upstream version;
+ * a future upstream rename safely reverts to the fixed default.
+ */
+export const DESKTOP_CONVERSATION_WIDTH_RULES = `
+[data-dsh-desktop-shell] .wSkVaW_root {
+  --dsh-chat-content-width: clamp(${DESKTOP_CHAT_CONTENT_MIN_PX}px, ${DESKTOP_CHAT_CONTENT_PREFERRED_VW}vw, ${DESKTOP_CHAT_CONTENT_MAX_PX}px);
+}
+`
+
+/** Install and remove the desktop conversation-width override. @returns the style disposer. */
+export function installDesktopConversationWidthStyles(): () => void {
+  const style = document.createElement('style')
+  style.dataset.plugin = 'dsh-plugin-desktop'
+  style.dataset.pluginCss = 'dsh-plugin-desktop/conversation-width'
+  style.textContent = DESKTOP_CONVERSATION_WIDTH_RULES
+  document.head.appendChild(style)
+  return () => { style.remove() }
+}

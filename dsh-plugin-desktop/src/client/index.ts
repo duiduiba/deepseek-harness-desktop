@@ -9,6 +9,7 @@ import { applyAdvancedShell } from './advanced-shell.ts'
 import { startRendererBootReporter } from './boot-health.ts'
 import { installDesktopDirectoryPickerBridge, requestDesktopDirectoryValidation } from './directory-picker.ts'
 import { parseDesktopClientEnvironment } from './environment.ts'
+import { installDesktopConversationWidthStyles } from './styles.ts'
 import { installWorkspaceFolderDrop } from './workspace-folder-drop.ts'
 
 export { applyAdvancedShell } from './advanced-shell.ts'
@@ -54,5 +55,21 @@ export function apply(ctx: ClientContext): void {
       'dsh-plugin-desktop: native directory picker bridge',
     )
   }
+  ctx.effect(
+    () => {
+      // Mark the document as a desktop shell so the desktop-owned conversation
+      // width override can scope its rules above the upstream declaration, then
+      // install the responsive override in every shell mode. Maximizing the
+      // window widens the dialog (composer card and message column) instead of
+      // holding it at the upstream fixed default.
+      document.documentElement.dataset.dshDesktopShell = environment.platform
+      const removeStyles = installDesktopConversationWidthStyles()
+      return () => {
+        removeStyles()
+        delete document.documentElement.dataset.dshDesktopShell
+      }
+    },
+    'dsh-plugin-desktop: conversation width override',
+  )
   if (environment.mode === 'advanced') applyAdvancedShell(ctx, environment)
 }
